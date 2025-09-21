@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Darurat — Panel RIO</title>
+<style>
+  :root{
+    --accent:#b71c1c; /* merah */
+    --accent-dark:#7f0f0f;
+    --bg:#0b0b0b;
+    --white:#ffffff;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);font-family:Inter, system-ui, Arial;padding:0;color:var(--white);}
+
+  /* Layout */
+  .wrap{max-width:420px;margin:18px auto;padding:18px;box-sizing:border-box;}
+  .card{
+    background:linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.4));
+    border-radius:12px;padding:18px;box-shadow:0 6px 30px rgba(0,0,0,0.6);
+    border:2px solid rgba(255,255,255,0.03);
+  }
+  h1{margin:6px 0 14px;font-size:20px;text-align:center;letter-spacing:2px;color:var(--accent);}
+
+  /* Garuda hero */
+  .garuda-wrap{position:relative;height:240px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
+  /* SVG scales responsively */
+  svg.garuda{width:100%;max-width:360px;height:auto;display:block;overflow:visible}
+
+  /* Wing animation */
+  .wing{
+    transform-origin:50% 70%;
+    animation:wingFlap 2s ease-in-out infinite;
+    will-change:transform;
+  }
+  /* give wings a slower pulsing flare */
+  .wing.fire{filter:drop-shadow(0 6px 20px rgba(255,120,0,0.65));}
+
+  @keyframes wingFlap{
+    0%{transform:rotate(-6deg) translateY(0)}
+    50%{transform:rotate(18deg) translateY(-8px)}
+    100%{transform:rotate(-6deg) translateY(0)}
+  }
+
+  /* expand wings once at start (bigger effect) */
+  .garuda-wrap.expand .wing{
+    animation: none;
+    transform-origin:50% 70%;
+    transform: rotate(28deg) translateY(-12px) scale(1.05);
+    transition: transform 1s ease-out;
+  }
+
+  /* fire effect under wing via pseudo elements (implemented with SVG rectangles & CSS animation) */
+  .fire-layer{opacity:0;transition:opacity 0.6s ease}
+  .garuda-wrap.on-fire .fire-layer{opacity:1;}
+  .fire-layer g { transform-origin: center; animation: fireFlicker 1s infinite ease-in-out; }
+  @keyframes fireFlicker {
+    0% { transform: translateY(0) scaleY(1) }
+    50% { transform: translateY(-6px) scaleY(1.12) }
+    100% { transform: translateY(0) scaleY(1) }
+  }
+
+  /* Controls & info */
+  .controls{display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+  .btn{
+    background:var(--accent);
+    color:var(--white);
+    border:none;padding:10px 12px;border-radius:8px;font-weight:700;cursor:pointer;
+    box-shadow:0 6px 18px rgba(183,28,28,0.25);
+  }
+  .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.08)}
+  .btn:active{transform:translateY(1px)}
+
+  /* Emergency panel */
+  .emergency{
+    margin-top:14px;padding:14px;border-radius:10px;background:linear-gradient(180deg, rgba(183,28,28,0.12), rgba(0,0,0,0.1));
+    border:2px solid rgba(183,28,28,0.14);
+  }
+  label{display:block;margin-bottom:6px;font-weight:700;color:#fff}
+  select, .tel-buttons{width:100%;margin-bottom:10px}
+  select{padding:10px;border-radius:8px;border:none;background:rgba(255,255,255,0.04);color:#fff;font-weight:600}
+
+  .tel-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+  .tel-btn{
+    flex:1 1 32%;
+    min-width:96px;
+    background:var(--accent);
+    color:var(--white);
+    padding:12px;border-radius:10px;text-align:center;font-weight:800;
+    text-decoration:none;display:inline-block;border:3px solid rgba(255,255,255,0.06);
+  }
+  .tel-btn.big{flex-basis:100%;margin-top:6px}
+
+  /* location info area */
+  .loc-info{font-size:12px;color:#ddd;margin-top:8px;background:rgba(255,255,255,0.03);padding:8px;border-radius:6px}
+
+  /* visual red background flash when dialing */
+  .flash{
+    position:fixed;left:0;right:0;top:0;bottom:0;background:var(--accent);opacity:0;pointer-events:none;transition:opacity .25s;
+    z-index:9998;
+  }
+  .flash.on{opacity:0.18;pointer-events:none;}
+
+  /* responsive tweaks */
+  @media (max-width:420px){
+    .garuda-wrap{height:200px}
+    .tel-btn{padding:10px;font-size:13px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" role="main" aria-label="Panel Darurat">
+    <div class="garuda-wrap" id="garudaWrap" aria-hidden="false">
+      <!-- Simple stylized Garuda SVG -->
+      <svg class="garuda" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <!-- body -->
+        <g transform="translate(400,200)">
+          <g id="wings-left" class="wing">
+            <path d="M-20,-10 C-160,-30 -260,-140 -360,-160 C-320,-110 -220,-60 -120,-35 Z"
+                  fill="#3b0f6a" opacity="1" transform="scale(1.05)"></path>
+            <path d="M-70,-30 C-150,-70 -210,-120 -300,-140"
+                  stroke="#ff7f2a" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.9"></path>
+          </g>
+
+          <g id="wings-right" class="wing" transform="scale(-1,1)">
+            <path d="M-20,-10 C-160,-30 -260,-140 -360,-160 C-320,-110 -220,-60 -120,-35 Z"
+                  fill="#3b0f6a" opacity="1" transform="scale(1.05)"></path>
+            <path d="M-70,-30 C-150,-70 -210,-120 -300,-140"
+                  stroke="#ff7f2a" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.9"></path>
+          </g>
+
+          <!-- torso -->
+          <path d="M0,20 C40,10 80,10 100,30 C70,46 40,60 0,60 C-40,60 -70,46 -100,30 C-80,10 -40,10 0,20 Z"
+                fill="#261033" stroke="#000" stroke-opacity="0.2"/>
+          <!-- head -->
+          <path d="M0,-40 C10,-54 30,-60 42,-48 C60,-18 40,-6 18,-2 C8,0 -8,0 -18,-4 C-36,-12 -8,-18 0,-40 Z" fill="#331a1a"/>
+          <!-- chest / muscles -->
+          <path d="M-40,20 C-20,0 20,0 40,20" fill="#4b2b2b" opacity="0.95"></path>
+
+          <!-- Fire layer -->
+          <g class="fire-layer" id="fireLayer">
+            <g transform="translate(-220,20) scale(0.9)">
+              <path d="M0,0 C20,-40 60,-50 100, -20 C80,-2 60,10 40,20 C20,10 0,6 0,0Z" fill="url(#gradFire)"/>
+            </g>
+            <g transform="translate(220,20) scale(0.9)">
+              <path d="M0,0 C20,-40 60,-50 100, -20 C80,-2 60,10 40,20 C20,10 0,6 0,0Z" fill="url(#gradFire)"/>
+            </g>
+          </g>
+
+          <!-- gradients -->
+          <defs>
+            <linearGradient id="gradFire" x1="0" x2="1">
+              <stop offset="0%" stop-color="#ffeb3b"/>
+              <stop offset="40%" stop-color="#ff9800"/>
+              <stop offset="100%" stop-color="#d32f2f"/>
+            </linearGradient>
+          </defs>
+        </g>
+      </svg>
+    </div>
+
+    <h1>GARUDA EMERGENCY — NOMOR DARURAT</h1>
+
+    <div style="text-align:center;font-size:13px;margin-bottom:8px;color:#ddd">
+      Aktifkan lokasi untuk menampilkan nomor darurat terdekat. Setelah animasi Garuda selesai (30s) situs akan membacakan panduan.
+    </div>
+
+    <div class="controls" style="margin-bottom:8px">
+      <button class="btn" id="reqLocationBtn">NYALAKAN LOKASI</button>
+      <button class="btn secondary" id="skipAnimBtn">Skip Animation</button>
+      <button class="btn secondary" id="playSoundBtn" title="Play sound jika autoplay diblokir">Play Sound</button>
+    </div>
+
+    <div class="emergency" id="emergencyPanel">
+      <label for="countrySelect">Pilih Negara</label>
+      <select id="countrySelect" aria-label="Pilih Negara">
+        <!-- Banyak negara, bisa kamu tambahkan sendiri -->
+        <option value="AUTO">🔍 Gunakan Lokasi (Default 112)</option>
+        <option value="ID">Indonesia</option>
+        <option value="US">Amerika Serikat</option>
+        <option value="GB">United Kingdom</option>
+        <option value="EU">Uni Eropa (112)</option>
+        <option value="AU">Australia</option>
+        <option value="CA">Canada</option>
+        <option value="JP">Japan</option>
+        <option value="IN">India</option>
+        <option value="PH">Philippines</option>
+        <option value="SG">Singapore</option>
+        <option value="MY">Malaysia</option>
+        <option value="TH">Thailand</option>
+        <option value="VN">Vietnam</option>
+        <option value="KR">South Korea</option>
+        <option value="CN">China</option>
+        <option value="BR">Brazil</option>
+        <option value="MX">Mexico</option>
+        <option value="ZA">South Africa</option>
+        <option value="TR">Turkey</option>
+        <option value="RU">Russia</option>
+        <option value="SA">Saudi Arabia</option>
+        <option value="AE">UAE</option>
+        <option value="DE">Germany</option>
+        <option value="FR">France</option>
+        <option value="ES">Spain</option>
+        <option value="IT">Italy</option>
+        <option value="NL">Netherlands</option>
+        <option value="SE">Sweden</option>
+        <option value="NO">Norway</option>
+        <option value="DK">Denmark</option>
+        <!-- kamu bisa tambah lagi -->
+      </select>
+
+      <div class="tel-buttons" id="telButtons">
+        <!-- tombol akan di-render di sini -->
+      </div>
+
+      <div class="loc-info" id="locInfo">Lokasi: belum diaktifkan.</div>
+    </div>
+  </div>
+</div>
+
+<!-- flash layar merah ketika tombol ditekan -->
+<div class="flash" id="flash"></div>
+
+<script>
+/* ====== DATA NOMOR DARURAT (bisa diedit/tambah) ======
+ * Untuk beberapa negara menggunakan nomor umum 112 sebagai fallback.
+ * Pastikan kamu cek nomor yang tepat jika mau dipublikasikan.
+ */
+const EMERGENCY_NUMBERS = {
+  "ID": { police:"110", ambulance:"118", fire:"113" },
+  "US": { police:"911", ambulance:"911", fire:"911" },
+  "GB": { police:"999", ambulance:"999", fire:"999", alt:"112" },
+  "EU": { police:"112", ambulance:"112", fire:"112" },
+  "AU": { police:"000", ambulance:"000", fire:"000" },
+  "CA": { police:"911", ambulance:"911", fire:"911" },
+  "JP": { police:"110", ambulance:"119", fire:"119" },
+  "IN": { police:"112", ambulance:"102", fire:"101" },
+  "PH": { police:"117", ambulance:"911", fire:"160" },
+  "SG": { police:"999", ambulance:"995", fire:"995" },
+  "MY": { police:"999", ambulance:"999", fire:"999" },
+  "TH": { police:"191", ambulance:"1669", fire:"199" },
+  "VN": { police:"113", ambulance:"115", fire:"114" },
+  "KR": { police:"112", ambulance:"119", fire:"119" },
+  "CN": { police:"110", ambulance:"120", fire:"119" },
+  "BR": { police:"190", ambulance:"192", fire:"193" },
+  "MX": { police:"911", ambulance:"911", fire:"911" },
+  "ZA": { police:"10111", ambulance:"10177", fire:"10177" },
+  "TR": { police:"155", ambulance:"112", fire:"110" },
+  "RU": { police:"102", ambulance:"103", fire:"101" },
+  "SA": { police:"999", ambulance:"997", fire:"998" },
+  "AE": { police:"999", ambulance:"998", fire:"997" },
+  "DE": { police:"110", ambulance:"112", fire:"112" },
+  "FR": { police:"17", ambulance:"15", fire:"18", eu:"112" },
+  "ES": { police:"112", ambulance:"112", fire:"112" },
+  "IT": { police:"113", ambulance:"118", fire:"115" },
+  "NL": { police:"112", ambulance:"112", fire:"112" },
+  "SE": { police:"112", ambulance:"112", fire:"112" },
+  "NO": { police:"112", ambulance:"113", fire:"110" },
+  "DK": { police:"112", ambulance:"112", fire:"112" }
+};
+
+const DEFAULT = { police:"112", ambulance:"112", fire:"112" };
+
+/* ====== UI references ====== */
+const countrySelect = document.getElementById('countrySelect');
+const telButtons = document.getElementById('telButtons');
+const locInfo = document.getElementById('locInfo');
+const flash = document.getElementById('flash');
+
+let userCoords = null;
+let animationRunning = true; // set true while garuda anim runs
+const ANIM_DURATION = 80 * 1000; // 80 detik
+
+/* Render tombol sesuai negara */
+function renderButtons(countryCode){
+  telButtons.innerHTML = '';
+  const data = EMERGENCY_NUMBERS[countryCode] || DEFAULT;
+  const list = [
+    {label:'POLISI', num:data.police || DEFAULT.police},
+    {label:'AMBULANS', num:data.ambulance || DEFAULT.ambulance},
+    {label:'PEMADAM', num:data.fire || DEFAULT.fire}
+  ];
+  list.forEach(item=>{
+    const a = document.createElement('a');
+    a.href = '#';
+    a.className = 'tel-btn';
+    a.dataset.number = item.num;
+    a.innerText = `${item.label}\n${item.num}`;
+    a.addEventListener('click', onTelClick);
+    telButtons.appendChild(a);
+  });
+  // big helper - call international emergency
+  const quick = document.createElement('a');
+  quick.href='#';
+  quick.className='tel-btn big';
+  quick.innerText='PANGGIL 112 (DARURAT INTERNASIONAL)';
+  quick.dataset.number='112';
+  quick.addEventListener('click', onTelClick);
+  telButtons.appendChild(quick);
+}
+
+/* When user clicks tele-button */
+function onTelClick(e){
+  e.preventDefault();
+  const number = this.dataset.number;
+  // require location enabled
+  if(!userCoords){
+    alert('Lokasi belum diaktifkan. Silakan tekan "NYALAKAN LOKASI" agar sistem dapat menampilkan nomor terdekat.');
+    return;
+  }
+  // flash red
+  flash.classList.add('on');
+  setTimeout(()=>flash.classList.remove('on'), 600);
+
+  // create a tel: link and navigate
+  // on mobile this should open phone dialer
+  const tel = `tel:${number}`;
+  // try open via window.location
+  window.location.href = tel;
+}
+
+/* Request geolocation permission & get coords */
+function askLocation(){
+  if(!navigator.geolocation){
+    locInfo.innerText = 'Geolocation tidak didukung di browser ini.';
+    return;
+  }
+  locInfo.innerText = 'Mencari lokasi…';
+  navigator.geolocation.getCurrentPosition((pos)=>{
+    userCoords = pos.coords;
+    locInfo.innerText = `Lokasi aktif — Lat: ${pos.coords.latitude.toFixed(5)}, Lon: ${pos.coords.longitude.toFixed(5)}`;
+    // if dropdown set to AUTO, try auto-select country via reverse geolocation? (we avoid external calls)
+    // For simplicity: if AUTO selected, leave numbers as 112 universal fallback.
+  }, (err)=>{
+    locInfo.innerText = 'Lokasi tidak diizinkan atau tidak tersedia. Silakan izinkan lokasi.';
+    console.warn(err);
+  }, { enableHighAccuracy:true, timeout:10000 });
+}
+
+/* handle country change */
+countrySelect.addEventListener('change', ()=>{
+  const val = countrySelect.value;
+  if(val==='AUTO'){
+    renderButtons('EU'); // show default (112)
+  } else {
+    renderButtons(val);
+  }
+});
+
+/* Buttons */
+document.getElementById('reqLocationBtn').addEventListener('click', askLocation);
+document.getElementById('skipAnimBtn').addEventListener('click', ()=>{
+  stopGarudaAnimation();
+});
+document.getElementById('playSoundBtn').addEventListener('click', ()=>{
+  playEagleScreech();
+});
+
+/* initial render */
+renderButtons('EU');
+locInfo.innerText = 'Lokasi: belum diaktifkan. Tekan NYALAKAN LOKASI.';
+
+/* ====== Garuda animation logic (30s) ====== */
+const garudaWrap = document.getElementById('garudaWrap');
+let animTimer = null;
+
+function startGarudaAnimation(){
+  animationRunning = true;
+  // expand wings and turn on fire
+  garudaWrap.classList.add('expand');
+  setTimeout(()=>{ garudaWrap.classList.add('on-fire'); }, 800);
+  // sound
+  playEagleScreech();
+  // schedule advanced fire / flap behavior: after 3s switch to continuous flap
+  setTimeout(()=>{
+    garudaWrap.classList.remove('expand');
+    garudaWrap.classList.add('flapping');
+  }, 2500);
+
+  // schedule to stop after ANIM_DURATION
+  animTimer = setTimeout(()=>{
+    stopGarudaAnimation();
+  }, ANIM_DURATION);
+}
+
+function stopGarudaAnimation(){
+  if(!animationRunning) return;
+  animationRunning = false;
+  clearTimeout(animTimer);
+  // remove special classes
+  garudaWrap.classList.remove('expand');
+  garudaWrap.classList.remove('on-fire');
+  garudaWrap.classList.remove('flapping');
+  // trigger TTS guide
+  speakGuide();
+}
+
+/* ====== Sound: synthesize a screech (WebAudio) ====== */
+let audioCtx = null;
+function ensureAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playEagleScreech(){
+  try{
+    const ctx = ensureAudioCtx();
+    // short noisy-sine screech
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const noise = ctx.createBufferSource();
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.6, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<data.length;i++){
+      data[i] = (Math.random()*2-1) * Math.exp(-i/data.length*3);
+    }
+    noise.buffer = buffer;
+
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 800;
+
+    o.type='sawtooth';
+    o.frequency.value = 650; // base tone
+    g.gain.value = 0.0001;
+
+    // routing
+    noise.connect(noiseFilter);
+    noiseFilter.connect(g);
+    o.connect(g);
+    g.connect(ctx.destination);
+
+    // envelope
+    const now = ctx.currentTime;
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+    o.frequency.setValueAtTime(650, now);
+    o.frequency.exponentialRampToValueAtTime(220, now + 0.6);
+
+    o.start(now);
+    noise.start(now);
+    // stop
+    o.stop(now + 0.65);
+    noise.stop(now + 0.65);
+  }catch(err){
+    console.warn('Audio synthesis error', err);
+  }
+}
+
+/* ====== TTS guide using Web Speech API ====== */
+function speakGuide(){
+  const guideText = `Asalammualaikum warohmatulohi wabarokatu Selamat datang di GARUDA Emergency. 
+  Cara pakai: Aktifkan lokasi dengan menekan tombol "Nyalakan Lokasi". 
+  Pilih negara dari daftar jika kamu ingin mengganti nomor darurat lokal. 
+  Untuk menelepon, tekan tombol POLISI, AMBULANS, atau PEMADAM — aplikasi telepon akan terbuka. 
+  Jika panggilan tidak berhasil, hubungi nomor darurat internasional 112. 
+  Semoga keadan kamu aman.`;
+  if('speechSynthesis' in window){
+    const utter = new SpeechSynthesisUtterance(guideText);
+    // set params
+    utter.lang = 'id-ID';
+    utter.rate = 1;
+    utter.pitch = 1;
+    utter.volume = 1;
+    // try to pick a voice matching Indonesian (if available)
+    const voices = speechSynthesis.getVoices();
+    if(voices && voices.length){
+      const v = voices.find(x=>x.lang && x.lang.startsWith('id')) || voices[0];
+      if(v) utter.voice = v;
+    }
+    // speak after slight timeout (ensure audio context resumed)
+    setTimeout(()=> speechSynthesis.speak(utter), 300);
+  } else {
+    console.warn('Web Speech API not available');
+  }
+}
+
+/* Start anim on load */
+window.addEventListener('load', ()=>{
+  // Start large Garuda intro; TTS will come after stopGarudaAnimation is called
+  startGarudaAnimation();
+});
+
+/* Accessibility: allow user to resume audio context on gesture (some browsers require user gesture) */
+window.addEventListener('click', ()=>{
+  if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+  if(speechSynthesis && speechSynthesis.paused) speechSynthesis.resume();
+});
+
+/* OPTIONAL: auto-select country based on geolocation (very basic lat/lon check)
+   Note: we avoid external reverse-geocoding APIs; this snippet only sets Indonesia/US/JP heuristics
+*/
+function maybeAutoSelectCountry(lat, lon){
+  // simple box checks (not precise) -> just to auto switch common countries
+  if(!lat || !lon) return;
+  if(lat > -11 && lat < 6 && lon > 95 && lon < 141){ // Indonesia area roughly
+    countrySelect.value = 'ID';
+  } else if(lat > 24 && lat < 50 && lon > -125 && lon < -66){
+    countrySelect.value = 'US';
+  } else if(lat > 33 && lat < 46 && lon > 129 && lon < 146){
+    countrySelect.value = 'JP';
+  }
+  // re-render
+  const val = countrySelect.value;
+  if(val==='AUTO') renderButtons('EU'); else renderButtons(val);
+}
+
+/* When location obtained earlier, attempt auto-select */
+navigator.geolocation && navigator.geolocation.getCurrentPosition((p)=>{
+  userCoords = p.coords;
+  locInfo.innerText = `Lokasi aktif — Lat: ${p.coords.latitude.toFixed(5)}, Lon: ${p.coords.longitude.toFixed(5)}`;
+  // auto country detect
+  maybeAutoSelectCountry(p.coords.latitude, p.coords.longitude);
+}, ()=>{}, {timeout:5000});
+
+/* End of script */
+</script>
+</body>
+</html>
